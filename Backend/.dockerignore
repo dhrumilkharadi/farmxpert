@@ -1,0 +1,12 @@
+node_modules
+.git
+.gitignore
+.env
+README.md
+*.md
+test
+.vscode
+.idea
+.claude
+Dockerfile
+.dockerignore

@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.gitignore
+.env
+.env.local
+.env.*.local
+README.md
+*.md
+.vscode
+.idea
+.claude
+Dockerfile
+.dockerignore
+replace_colors.js

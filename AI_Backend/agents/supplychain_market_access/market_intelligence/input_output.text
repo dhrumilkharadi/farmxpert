@@ -1,0 +1,228 @@
+================================================================================
+        MARKET INTELLIGENCE AGENT — INPUT / OUTPUT SPECIFICATION
+================================================================================
+
+Agent     : Market Intelligence Agent
+Location  : AI_Backend/agents/supplychain_market_access/market_intelligence/
+Entry     : agent.py → run_market_agent(input_data)
+HTTP API  : GET /api/market-intelligence/insights
+Version   : 3.0  (insights-only)
+
+What changed vs v2.x:
+  • REMOVED: SELL_NOW / SELL_IN_OTHER_MANDI / HOLD action
+  • REMOVED: transport-cost estimation and state-adjacency map
+  • REMOVED: profit ranking, best_market / best_profit
+  • REMOVED: storage / logistics suggestions
+  • KEPT   : current market prices, historical trend, forecast prediction
+  • KEPT   : confidence + data-quality signals
+  • ADDED  : per-market price table, aggregated price summary
+             (modal min/max/avg/median, spread %, fresh_records_pct)
+  • ADDED  : agent_id / agent_version provenance
+
+
+================================================================================
+  INPUT
+================================================================================
+
+MarketQueryInput (Pydantic):
+
+  Field                  Type             Required  Example
+  --------------------   --------------   --------  ---------------------
+  commodity              str              Yes       "Wheat"
+  state                  Optional[str]    No        "Gujarat"
+  district               Optional[str]    No        "Ahmedabad"
+  forecast_horizon_days  int              No        7   (default; range 1-30)
+
+Notes:
+  • Trailing whitespace and control characters are stripped automatically.
+  • `state` narrows the underlying mandi fetch — improves response time and
+    relevance for the farmer's region.
+  • `district` is informational only (annotates per-market rows). No
+    transport-cost calculation is performed.
+
+SAMPLE HTTP CALL:
+  GET /api/market-intelligence/insights
+      ?commodity=Wheat
+      &state=Gujarat
+      &district=Ahmedabad
+      &forecast_horizon_days=7
+
+SAMPLE INTERNAL CALL:
+  insights = await run_market_agent(MarketQueryInput(commodity="Wheat",
+                                                     state="Gujarat"))
+
+
+================================================================================
+  OUTPUT — MarketInsights  (insights-only JSON)
+================================================================================
+
+Top-level fields:
+
+  agent_id         : str   "market_intelligence_agent"
+  agent_version    : str   "3.0.0"
+  processed_at     : str   ISO-8601 UTC timestamp
+  commodity        : str
+  query_state      : Optional[str]
+  query_district   : Optional[str]
+  market_prices    : List[MarketPrice]     -- per-market snapshot
+  price_summary    : PriceSummary           -- aggregated stats
+  price_trend      : PriceTrend             -- OLS direction
+  forecast         : PriceForecast          -- next-step prediction
+  confidence       : float (0-1)
+  data_quality     : DataQuality
+  warnings         : List[str]
+
+----------- Sub-models -----------
+
+MarketPrice:
+  market, state, district, variety, grade, arrival_date,
+  modal_price, min_price, max_price
+
+PriceSummary:
+  modal_price_avg, modal_price_min, modal_price_max, modal_price_median,
+  min_price_avg, max_price_avg, spread_pct, price_unit,
+  sampled_markets, sampled_records
+
+PriceTrend:
+  direction        : "increasing" | "decreasing" | "stable"
+  slope_normalised : float  (slope / mean — scale-independent)
+  window_records   : int
+
+PriceForecast:
+  predicted_price       : float
+  predicted_trend       : "increasing" | "decreasing" | "stable"
+  expected_change_pct   : float
+  model_used            : "lstm" | "moving_average" | "fallback"
+  horizon_days          : int
+
+DataQuality:
+  records_used, unique_markets, coefficient_of_variation, fresh_records_pct
+
+
+SAMPLE OUTPUT (JSON):
+
+{
+  "agent_id": "market_intelligence_agent",
+  "agent_version": "3.0.0",
+  "processed_at": "2026-06-21T08:00:00Z",
+  "commodity": "Wheat",
+  "query_state": "Gujarat",
+  "query_district": "Ahmedabad",
+  "market_prices": [
+    {"market": "Surat", "state": "Gujarat", "district": "Surat",
+     "modal_price": 2450.0, "min_price": 2200.0, "max_price": 2600.0,
+     "arrival_date": "2026-06-20"},
+    {"market": "Ahmedabad", "state": "Gujarat", "district": "Ahmedabad",
+     "modal_price": 2200.0, "min_price": 2050.0, "max_price": 2350.0,
+     "arrival_date": "2026-06-20"},
+    {"market": "Rajkot", "state": "Gujarat", "district": "Rajkot",
+     "modal_price": 2180.0, "min_price": 2050.0, "max_price": 2310.0,
+     "arrival_date": "2026-06-20"}
+  ],
+  "price_summary": {
+    "modal_price_avg": 2276.7,
+    "modal_price_min": 2180.0,
+    "modal_price_max": 2450.0,
+    "modal_price_median": 2200.0,
+    "min_price_avg": 2100.0,
+    "max_price_avg": 2420.0,
+    "spread_pct": 11.9,
+    "price_unit": "INR/quintal",
+    "sampled_markets": 3,
+    "sampled_records": 3
+  },
+  "price_trend": {
+    "direction": "stable",
+    "slope_normalised": 0.012,
+    "window_records": 87
+  },
+  "forecast": {
+    "predicted_price": 2510.0,
+    "predicted_trend": "increasing",
+    "expected_change_pct": 7.5,
+    "model_used": "lstm",
+    "horizon_days": 7
+  },
+  "confidence": 0.74,
+  "data_quality": {
+    "records_used": 87,
+    "unique_markets": 12,
+    "coefficient_of_variation": 0.07,
+    "fresh_records_pct": 88.5
+  },
+  "warnings": []
+}
+
+
+================================================================================
+  WHY NO SELL / HOLD ACTION
+================================================================================
+
+The agent emits structured price intelligence only. Two design reasons:
+  1. The orchestrator is the layer that knows the farmer's intent, risk
+     appetite, storage capacity, and family income. Telling a farmer to
+     SELL or HOLD requires that context.
+  2. Different downstream consumers (dashboard, voice assistant, broker
+     terminal) want to render the same JSON differently. A baked-in
+     decision blocks that.
+
+If you need the orchestrator to surface a "should I sell?" answer:
+  • increasing forecast + stable history + high confidence  → HOLD
+  • decreasing forecast + high confidence                    → SELL NOW
+  • low confidence                                           → SHOW DATA, NO ACTION
+
+
+================================================================================
+  HOW THE TASK SCHEDULER USES THIS
+================================================================================
+
+The scheduler accepts the same insights via the
+`market_intelligence_agent` block of SchedulerInput. In v3.0 this block
+is **informational only** — no scheduler task is generated from it.
+The scheduler now requires no `recommended_action`; if present, it is
+honoured for back-compat.
+
+Adapter (orchestrator → scheduler):
+
+  from AI_Backend.agents.orchestrator.adapters import \
+      market_insights_to_scheduler_block
+
+  scheduler_input["market_intelligence_agent"] = \
+      market_insights_to_scheduler_block(insights_output)
+
+
+================================================================================
+  CONFIDENCE SCORE (3-factor, v3.0)
+================================================================================
+
+  Factor             Weight   Measures
+  -----------------  ------   ------------------------------------------
+  Data coverage      0.40     Unique markets observed
+  Price consistency  0.40     Coefficient of variation across markets
+  Signal agreement   0.20     Historical trend vs forecast direction
+
+
+================================================================================
+  FORECAST WATERFALL  (unchanged from v2)
+================================================================================
+
+  1. LSTM model     — when model is loaded AND >= 30 records
+  2. Weighted MA    — when >= 3 records (7-day window, linear weights)
+  3. Last price     — fallback when 1-2 records
+
+
+================================================================================
+  ENVIRONMENT VARIABLES  (all optional — defaults shown)
+================================================================================
+
+  BACKEND_BASE_URL            http://localhost:8000
+  HTTP_TIMEOUT_SECONDS        15.0
+  HTTP_MAX_RETRIES            3
+  DEFAULT_FETCH_LIMIT         200
+  MARKETS_TO_RETURN           10
+  ML_MODELS_DIR               AI_Backend/ml/models
+  LSTM_MODEL_FILE             mandi_price_lstm.h5
+  LSTM_SCALER_FILE            price_scaler.pkl
+  LSTM_SEQUENCE_LENGTH        30
+  TREND_INCREASE_THRESHOLD    0.02
+  TREND_DECREASE_THRESHOLD    -0.02

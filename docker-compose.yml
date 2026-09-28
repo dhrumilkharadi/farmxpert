@@ -1,0 +1,254 @@
+# ============================================================================
+# FarmXpert — Docker Compose (Production-ready for AWS)
+# ============================================================================
+# Usage:
+#   1. Copy .env.example → .env and fill in secrets
+#   2. docker compose up -d --build
+#   3. docker compose exec backend node src/db/migrate.js   (first run)
+#   4. docker compose logs -f
+#
+# AWS Deployment:
+#   - Push images to ECR, deploy with ECS/Fargate or docker compose on EC2
+#   - For RDS: remove the postgres service, update DATABASE_URL in .env
+#   - For production: use AWS Secrets Manager for all sensitive env vars
+# ============================================================================
+
+services:
+
+  # --------------------------------------------------------------------------
+  # PostgreSQL 16 with PostGIS + pgvector (swap with RDS in production)
+  # --------------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: farmxpert-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-farmxpert}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-farmxpert}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/01-extensions.sql:ro
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-farmxpert} -d ${POSTGRES_DB:-farmxpert}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - farmxpert-net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # --------------------------------------------------------------------------
+  # Node.js Backend (Express 5 API)
+  # --------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: farmxpert-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+      # Database — points to the postgres service
+      DATABASE_URL: postgres://${POSTGRES_USER:-farmxpert}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-farmxpert}
+      DB_POOL_MAX: ${DB_POOL_MAX:-20}
+      DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-15000}
+      DB_SSL: ${DB_SSL:-disable}
+
+      # AI Backend — internal Docker network
+      AI_BACKEND_URL: http://ai-backend:8000
+      AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-35000}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?Set INTERNAL_API_KEY in .env}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:?Set ADMIN_API_KEY in .env}
+
+      # CORS — allow the frontend container
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+
+      # Mandi prices
+      DATA_GOV_API_KEY: ${DATA_GOV_API_KEY:-}
+      MANDI_RESOURCE_ID: ${MANDI_RESOURCE_ID:-9ef84268-d588-465a-a308-a864a43d0070}
+      MANDI_COMMODITIES: ${MANDI_COMMODITIES:-Wheat,Rice,Tomato,Onion,Potato,Cotton,Groundnut}
+      MANDI_CRON: ${MANDI_CRON:-15 * * * *}
+
+      # Sensors
+      BLYNK_BASE_URL: ${BLYNK_BASE_URL:-https://blr1.blynk.cloud/external/api/get}
+      BLYNK_MOCK: ${BLYNK_MOCK:-true}
+      SENSOR_SYNC_CRON: ${SENSOR_SYNC_CRON:-*/15 * * * *}
+
+      # Jobs & Storage
+      JOBS_ENABLED: ${JOBS_ENABLED:-true}
+      ARCHIVE_URI: ${ARCHIVE_URI:-file://./archive}
+      LIFECYCLE_CRON: ${LIFECYCLE_CRON:-30 2 * * *}
+
+      # Token & Voice limits
+      TOKEN_DAILY_LIMIT: ${TOKEN_DAILY_LIMIT:-60000}
+      TOKEN_DAY_TIMEZONE: ${TOKEN_DAY_TIMEZONE:-Asia/Kolkata}
+      TOKEN_PRICE_CURRENCY: ${TOKEN_PRICE_CURRENCY:-USD}
+      TOKEN_USAGE_RETENTION_DAYS: ${TOKEN_USAGE_RETENTION_DAYS:-730}
+      AI_STREAM_TIMEOUT_MS: ${AI_STREAM_TIMEOUT_MS:-90000}
+      VOICE_MAX_BYTES: ${VOICE_MAX_BYTES:-2097152}
+      VOICE_MAX_SECONDS: ${VOICE_MAX_SECONDS:-60}
+      VOICE_DAILY_SECONDS: ${VOICE_DAILY_SECONDS:-900}
+      RATE_LIMIT_CHAT_PER_MIN: ${RATE_LIMIT_CHAT_PER_MIN:-20}
+      RATE_LIMIT_VOICE_PER_MIN: ${RATE_LIMIT_VOICE_PER_MIN:-8}
+    ports:
+      - "${BACKEND_PORT:-4000}:4000"
+    networks:
+      - farmxpert-net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # --------------------------------------------------------------------------
+  # Python AI Backend (FastAPI + ML models)
+  # --------------------------------------------------------------------------
+  ai-backend:
+    build:
+      context: ./AI_Backend
+      dockerfile: Dockerfile
+    container_name: farmxpert-ai
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Internal API key (must match backend's INTERNAL_API_KEY)
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+
+      # Node backend URL (for market agent to read mandi prices)
+      BACKEND_BASE_URL: http://backend:4000
+
+      # Database for knowledge index (pgvector)
+      DATABASE_URL: postgres://${POSTGRES_USER:-farmxpert}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-farmxpert}
+      AI_DB_POOL_SIZE: ${AI_DB_POOL_SIZE:-3}
+
+      # LLM configuration
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL_UNDERSTAND: ${LLM_MODEL_UNDERSTAND:-gpt-4o-mini}
+      LLM_MODEL_ANSWER: ${LLM_MODEL_ANSWER:-gpt-4o}
+      LLM_MODEL_FALLBACK: ${LLM_MODEL_FALLBACK:-}
+      LLM_REASONING_UNDERSTAND: ${LLM_REASONING_UNDERSTAND:-minimal}
+      LLM_REASONING_ANSWER: ${LLM_REASONING_ANSWER:-low}
+      LLM_TIMEOUT_UNDERSTAND_S: ${LLM_TIMEOUT_UNDERSTAND_S:-6}
+      LLM_TIMEOUT_ANSWER_S: ${LLM_TIMEOUT_ANSWER_S:-20}
+
+      # Embeddings
+      EMBED_MODEL: ${EMBED_MODEL:-text-embedding-3-small}
+      EMBED_DIM: ${EMBED_DIM:-1024}
+      EMBED_QUERY_CACHE_SIZE: ${EMBED_QUERY_CACHE_SIZE:-2048}
+
+      # Voice
+      SPEECH_BASE_URL: ${SPEECH_BASE_URL:-}
+      SPEECH_API_KEY: ${SPEECH_API_KEY:-}
+      STT_MODEL: ${STT_MODEL:-gpt-4o-transcribe}
+      TTS_MODEL: ${TTS_MODEL:-gpt-4o-mini-tts}
+      TTS_VOICE: ${TTS_VOICE:-alloy}
+      TTS_VOICES: ${TTS_VOICES:-}
+      TTS_FORMAT: ${TTS_FORMAT:-mp3}
+      VOICE_MAX_BYTES: ${VOICE_MAX_BYTES:-2097152}
+      VOICE_MAX_SECONDS: ${VOICE_MAX_SECONDS:-60}
+      SPEECH_TIMEOUT_S: ${SPEECH_TIMEOUT_S:-15}
+
+      # Weather & Debug
+      OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY:-}
+      AI_DEBUG: ${AI_DEBUG:-false}
+    ports:
+      - "${AI_PORT:-8000}:8000"
+    networks:
+      - farmxpert-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # --------------------------------------------------------------------------
+  # Next.js Frontend
+  # --------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+    container_name: farmxpert-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    networks:
+      - farmxpert-net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  # --------------------------------------------------------------------------
+  # Nginx Reverse Proxy (SSL termination + routing)
+  # --------------------------------------------------------------------------
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: farmxpert-proxy
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      - farmxpert-net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+# ============================================================================
+# Volumes & Networks
+# ============================================================================
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  farmxpert-net:
+    driver: bridge
