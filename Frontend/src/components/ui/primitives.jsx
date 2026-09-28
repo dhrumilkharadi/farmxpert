@@ -11,6 +11,7 @@ import { AlertCircle, CheckCircle2, Eye, EyeOff, Info, Loader2 } from '@/compone
 
 import { Link } from '@/i18n/navigation';
 import { cn } from '@/lib/cn';
+import { COUNTRY_CODE, formatLocal, localDigits } from '@/lib/phone';
 
 // ── buttons ─────────────────────────────────────────────────────────────────
 
@@ -89,6 +90,24 @@ export function TextField({ label, hint, error, optional, icon, className, ...in
   return (
     <Field label={label} hint={hint} error={error} optional={optional} icon={icon} className={className} id={input.id}>
       {(p) => <input {...p} {...input} />}
+    </Field>
+  );
+}
+
+/** Mobile number with a fixed +91: `value` and `onChange` carry the 10 local digits. */
+export function PhoneField({ label, hint, error, optional, className, value, onChange, ...input }) {
+  return (
+    <Field label={label} hint={hint} error={error} optional={optional} className={className} id={input.id}>
+      {(p) => (
+        <>
+          <span className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[0.95rem] text-ink tabular-nums" aria-hidden>
+            {COUNTRY_CODE}
+          </span>
+          <input {...p} {...input} type="tel" inputMode="numeric" autoComplete="tel-national" placeholder="98765 43210"
+            className={cn(p.className, 'pl-[3.05rem] tabular-nums')}
+            value={formatLocal(value)} onChange={(e) => onChange(localDigits(e.target.value))} />
+        </>
+      )}
     </Field>
   );
 }

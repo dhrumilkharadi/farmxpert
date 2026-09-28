@@ -299,6 +299,20 @@
 }
 .field-input-auth[aria-invalid='true'] { border-color: var(--auth-danger); }
 .field-control-auth .field-input-auth { padding-right: 2.1rem; }
+/* mobile number: the +91 sits inside the box and cannot be edited */
+.phone-control-auth { position: relative; }
+.phone-control-auth .field-input-auth { padding-left: calc(0.75rem + 2.05em); font-variant-numeric: tabular-nums; }
+.phone-prefix-auth {
+  position: absolute;
+  left: calc(0.75rem + 1.5px);
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--auth-text);
+  pointer-events: none;
+}
+.phone-control-auth .field-input-auth:disabled + .phone-prefix-auth { opacity: 0.6; }
 .field-error-auth { margin: 0.32rem 0 0; font-size: 0.6rem; color: var(--auth-danger); }
 
 .peek-btn-auth {
@@ -647,6 +661,7 @@
   .form-sub-auth, .field-input-auth, .btn-primary-auth { font-size: 0.82rem; }
   .field-label-auth { font-size: 0.64rem; }
   .field-input-auth { height: 44px; }
+  .phone-prefix-auth { font-size: 0.82rem; }
   .btn-primary-auth { width: 100%; height: 46px; }
 }
 

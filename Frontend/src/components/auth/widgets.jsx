@@ -12,6 +12,7 @@ import { useTranslations } from 'next-intl';
 import { AlertCircle, Check, CheckCircle2, Loader2, RefreshCw } from '@/components/ui/icons';
 
 import { api } from '@/lib/api';
+import { COUNTRY_CODE, formatLocal, localDigits } from '@/lib/phone';
 
 export function Field({ label, hint, error, optional, children }) {
   const id = useId();
@@ -31,6 +32,21 @@ export function Input({ label, error, optional, hint, ...props }) {
   return (
     <Field label={label} error={error} optional={optional} hint={hint}>
       {(a) => <input className="field-input-auth" {...a} {...props} />}
+    </Field>
+  );
+}
+
+/** Mobile number with a fixed +91: `value` and `onChange` carry the 10 local digits. */
+export function PhoneInput({ label, error, optional, hint, value, onChange, ...props }) {
+  return (
+    <Field label={label} error={error} optional={optional} hint={hint}>
+      {(a) => (
+        <div className="phone-control-auth">
+          <input className="field-input-auth" {...a} {...props} type="tel" inputMode="numeric" autoComplete="tel-national"
+            placeholder="98765 43210" value={formatLocal(value)} onChange={(e) => onChange(localDigits(e.target.value))} />
+          <span className="phone-prefix-auth" aria-hidden="true">{COUNTRY_CODE}</span>
+        </div>
+      )}
     </Field>
   );
 }

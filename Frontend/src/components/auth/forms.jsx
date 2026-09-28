@@ -15,9 +15,10 @@ import { ArrowLeft, ArrowRight } from '@/components/ui/icons';
 import { Link, useRouter } from '@/i18n/navigation';
 import { ApiError, api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { isValidMobile, toE164 } from '@/lib/phone';
 import AuthShell from './AuthShell';
 import {
-  Banner, Captcha, Checkbox, Input, OtpInput, PasswordInput, PasswordMeter, Submit, passwordIsStrong,
+  Banner, Captcha, Checkbox, Input, OtpInput, PasswordInput, PasswordMeter, PhoneInput, Submit, passwordIsStrong,
 } from './widgets';
 
 const EMAIL = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -156,7 +157,7 @@ export function RegisterForm({ locale }) {
     const next = {};
     if (form.name.trim().length < 2) next.name = t('nameShort');
     if (!EMAIL.test(form.email.trim())) next.email = t('emailInvalid');
-    if (form.phone && !/^[0-9+][0-9]{7,14}$/.test(form.phone.replace(/\s/g, ''))) next.phone = t('phoneInvalid');
+    if (form.phone && !isValidMobile(form.phone)) next.phone = t('phoneInvalid');
     if (!passwordIsStrong(form.password)) next.password = t('passwordWeak');
     if (!captcha?.captcha_answer) next.captcha = t('captchaMissing');
     if (!agree) next.agree = t('agreeMissing');
@@ -168,7 +169,7 @@ export function RegisterForm({ locale }) {
       const email = form.email.trim().toLowerCase();
       await api.post('/auth/register', {
         name: form.name.trim(), email, password: form.password, language: locale,
-        ...(form.phone && { phone: form.phone.replace(/\s/g, '') }), ...captcha,
+        ...(form.phone && { phone: toE164(form.phone) }), ...captcha,
       });
       router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err) {
@@ -190,8 +191,8 @@ export function RegisterForm({ locale }) {
       <form className="login-form-auth" onSubmit={submit} noValidate style={{ marginTop: '1rem' }}>
         <div className="fields-grid-2x2-auth">
           <Input label={t('name')} autoComplete="name" value={form.name} onChange={set('name')} error={problems.name} disabled={busy} />
-          <Input label={t('phone')} optional={c('optional')} type="tel" inputMode="tel" autoComplete="tel" placeholder="+91 98765 43210"
-            value={form.phone} onChange={set('phone')} error={problems.phone} disabled={busy} />
+          <PhoneInput label={t('phone')} optional={c('optional')}
+            value={form.phone} onChange={(phone) => setForm({ ...form, phone })} error={problems.phone} disabled={busy} />
         </div>
         <Input label={c('email')} type="email" autoComplete="email" inputMode="email" placeholder="you@example.com"
           value={form.email} onChange={set('email')} error={problems.email} disabled={busy} />

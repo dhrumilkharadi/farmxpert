@@ -15,12 +15,13 @@ import {
 import { useRouter } from '@/i18n/navigation';
 import { ApiError, api } from '@/lib/api';
 import { cn } from '@/lib/cn';
+import { localDigits, toE164 } from '@/lib/phone';
 import { useAuth } from '@/context/AuthContext';
 import { useFarm } from '@/context/FarmContext';
 import { clearApiCache, useApi } from '@/hooks/useApi';
 import { ThemeToggle } from '@/components/theme/ThemeProvider';
 import {
-  Alert, Button, ChoiceChips, Skeleton, TextField, inputClass,
+  Alert, Button, ChoiceChips, PhoneField, Skeleton, TextField, inputClass,
 } from '@/components/ui/primitives';
 import { Empty, PageHeader, Pill, Section, Sparkline, Stat, useFormat } from './widgets';
 
@@ -537,7 +538,7 @@ function SettingsView() {
   const err = useErr();
   const devices = useApi(farm ? `/farms/${farm.id}/devices` : null);
   const device = devices.data?.items?.find((d) => d.is_active) || null;
-  const [profile, setProfile] = useState({ name: user?.name || '', phone: user?.phone || '' });
+  const [profile, setProfile] = useState({ name: user?.name || '', phone: localDigits(user?.phone) });
   const [farmForm, setFarmForm] = useState({ name: farm?.name || '', district: farm?.district || '' });
   const [pw, setPw] = useState({ current_password: '', password: '' });
   const [token, setToken] = useState('');
@@ -562,12 +563,12 @@ function SettingsView() {
       <div className="grid gap-6 xl:grid-cols-2">
         <Section title={t('profile')}>
           <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); act('profile', async () => {
-            const res = await api.patch('/auth/me', { name: profile.name.trim(), ...(profile.phone && { phone: profile.phone.replace(/\s/g, '') }) });
+            const res = await api.patch('/auth/me', { name: profile.name.trim(), ...(profile.phone && { phone: toE164(profile.phone) }) });
             setUser(res.user);
           }, t('saved')); }}>
             <Alert tone={msg.profile?.tone}>{msg.profile?.text}</Alert>
             <TextField label={t('name')} icon={User} value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} />
-            <TextField label={t('phone')} type="tel" value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} />
+            <PhoneField label={t('phone')} value={profile.phone} onChange={(phone) => setProfile({ ...profile, phone })} />
             <TextField label={t('email')} value={user?.email || ''} disabled hint={t('emailHint')} />
             <div className="flex items-center justify-between gap-3">
               <ThemeToggle />

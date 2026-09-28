@@ -22,12 +22,13 @@ import {
 import { useRouter } from '@/i18n/navigation';
 import { ApiError, api } from '@/lib/api';
 import { cn } from '@/lib/cn';
+import { isValidMobile, localDigits, toE164 } from '@/lib/phone';
 import { useAuth } from '@/context/AuthContext';
 import Botanical from '@/components/ui/Botanical';
 import Logo from '@/components/ui/Logo';
 import { ThemeToggle } from '@/components/theme/ThemeProvider';
 import {
-  Alert, Button, ChoiceChips, Eyebrow, SelectField, TextField, inputClass,
+  Alert, Button, ChoiceChips, Eyebrow, PhoneField, SelectField, TextField, inputClass,
 } from '@/components/ui/primitives';
 
 const DRAFT_KEY = 'fx.onboarding.draft';
@@ -94,7 +95,7 @@ export default function OnboardingWizard() {
     setData((d) => ({
       ...(draft?.data || d),
       profile: { ...(draft?.data?.profile || d.profile), name: draft?.data?.profile?.name || user?.name || '',
-        phone: draft?.data?.profile?.phone || user?.phone || '', language: draft?.data?.profile?.language || user?.language || locale },
+        phone: localDigits(draft?.data?.profile?.phone || user?.phone), language: draft?.data?.profile?.language || user?.language || locale },
     }));
     if (draft?.step) setStep(Math.min(draft.step, STEPS.length - 1));
     api.get('/onboarding').then((res) => {
@@ -118,7 +119,7 @@ export default function OnboardingWizard() {
     const f = data.farm;
     if (STEPS[index].id === 'you') {
       if (data.profile.name.trim().length < 2) e['profile.name'] = t('errors.name');
-      if (data.profile.phone && !/^[0-9+][0-9]{7,14}$/.test(data.profile.phone.replace(/\s/g, ''))) e['profile.phone'] = t('errors.phone');
+      if (data.profile.phone && !isValidMobile(data.profile.phone)) e['profile.phone'] = t('errors.phone');
     }
     if (STEPS[index].id === 'farm') {
       if (!f.name.trim()) e['farm.name'] = t('errors.farmName');
@@ -177,7 +178,7 @@ export default function OnboardingWizard() {
       await api.post('/onboarding', {
         profile: {
           name: data.profile.name.trim(),
-          ...(data.profile.phone && { phone: data.profile.phone.replace(/\s/g, '') }),
+          ...(data.profile.phone && { phone: toE164(data.profile.phone) }),
           language: data.profile.language || locale,
         },
         farm: {
@@ -335,9 +336,8 @@ function StepYou({ data, set, errors, t }) {
     <div className="grid gap-5 sm:grid-cols-2">
       <TextField label={t('fields.name')} value={data.profile.name} autoComplete="name"
         onChange={(e) => set('profile', 'name', e.target.value)} error={err(errors, 'profile.name')} />
-      <TextField label={t('fields.phone')} optional={t('optional')} type="tel" inputMode="tel" autoComplete="tel"
-        placeholder="+91 98765 43210" value={data.profile.phone}
-        onChange={(e) => set('profile', 'phone', e.target.value)} error={err(errors, 'profile.phone')} hint={t('fields.phoneHint')} />
+      <PhoneField label={t('fields.phone')} optional={t('optional')} value={data.profile.phone}
+        onChange={(phone) => set('profile', 'phone', phone)} error={err(errors, 'profile.phone')} hint={t('fields.phoneHint')} />
       <div className="sm:col-span-2">
         <p className="mb-2.5 text-sm font-medium">{t('fields.language')}</p>
         <ChoiceChips label={t('fields.language')} value={data.profile.language}
