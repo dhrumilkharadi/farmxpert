@@ -48,9 +48,11 @@ export default function Overview() {
   const soil = useApi(fid ? `/farms/${fid}/soil/latest` : null);
   const usage = useApi(user ? `/users/${user.id}/usage` : null);
   const crop = field?.crop_name;
+  const cropKey = `crops.${String(crop || '').toLowerCase()}`;
+  const cropLabel = crop ? (o.has(cropKey) ? o(cropKey) : crop) : null;
   const market = useApi(crop ? `/market/prices?commodity=${encodeURIComponent(crop)}&days=30&limit=60` : null);
 
-  const planKey = fid ? `fx_plan_${fid}_${new Date().toISOString().slice(0, 10)}` : null;
+  const planKey = fid ? `fx_plan_${fid}_${locale}_${new Date().toISOString().slice(0, 10)}` : null;
   const [planning, setPlanning] = useState(false);
   const [streaming, setStreaming] = useState(false);
   // today's plan is kept on this device, so coming back to Today shows it instantly
@@ -127,7 +129,7 @@ export default function Overview() {
               {crop && (
                 <span className="flex items-center gap-1.5">
                   <Sprout className="size-4 text-gold/80" aria-hidden />
-                  {o.has(`crops.${crop}`) ? o(`crops.${crop}`) : crop}
+                  {cropLabel}
                   {field?.growth_stage && ` · ${o.has(`stages.${field.growth_stage}`) ? o(`stages.${field.growth_stage}`) : field.growth_stage}`}
                   {age != null && ` · ${t('dayOfCrop', { day: age })}`}
                 </span>
@@ -214,7 +216,7 @@ export default function Overview() {
           </Section>
 
           {/* ── market ─────────────────────────────────────── */}
-          <Section title={t('market.title', { crop: crop ? (o.has(`crops.${crop}`) ? o(`crops.${crop}`) : crop) : '' })}
+          <Section title={t('market.title', { crop: cropLabel || '' })}
             href="/dashboard/market" linkLabel={t('seeAll')}>
             {!crop ? <p className="text-sm text-muted">{t('market.noCrop')}</p>
               : market.loading ? <Skeleton className="h-16" />

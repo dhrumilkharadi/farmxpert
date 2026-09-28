@@ -52,7 +52,7 @@ const EMPTY = {
   field: { crop_name: '', growth_stage: '', sown_on: '', expected_harvest_on: '', irrigation_method: '', soil_type: '' },
   soil: { has_test: null, unit: 'card', soil_ph: '', nitrogen: '', phosphorus: '', potassium: '', soil_moisture: '', electrical_conductivity: '' },
   resources: { labor_units_available: 2, equipment_available: [], budget_available: '', working_hours_start: '06:00', working_hours_end: '18:00' },
-  device: { token: '', label: 'Soil probe' },
+  device: { token: '', label: '' },
 };
 
 function readDraft() {
@@ -198,7 +198,7 @@ export default function OnboardingWizard() {
           name: t('defaultFieldName'), ...data.field,
         }).filter(([, v]) => v !== '' && v !== null)),
         ...(soil && Object.keys(soil).length && { soil: { source: 'lab', ...soil } }),
-        ...(data.device.token.trim() && { device: { token: data.device.token.trim(), label: data.device.label || 'Soil probe' } }),
+        ...(data.device.token.trim() && { device: { token: data.device.token.trim(), ...(data.device.label.trim() && { label: data.device.label.trim() }) } }),
       });
       try { window.sessionStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
       await reload();
@@ -650,7 +650,7 @@ function StepDevice({ data, set, errors, t }) {
         <TextField label={t('fields.token')} placeholder="aBcD1234efGH5678…" value={d.token} autoComplete="off" spellCheck={false}
           onChange={(e) => { set('device', 'token', e.target.value.trim()); setTest(null); }} error={err(errors, 'device.token')}
           hint={t('fields.tokenHint')} />
-        <TextField label={t('fields.deviceName')} value={d.label} onChange={(e) => set('device', 'label', e.target.value)} />
+        <TextField label={t('fields.deviceName')} placeholder={t('fields.deviceNamePlaceholder')} value={d.label} onChange={(e) => set('device', 'label', e.target.value)} />
       </div>
       {d.token.length >= 8 && (
         <div className="flex flex-wrap items-center gap-4">

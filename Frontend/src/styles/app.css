@@ -684,3 +684,9 @@ body.fx-rv-grabbing, body.fx-rv-grabbing * { cursor: grabbing !important; user-s
   }
 }
 .fx-rv-falling { filter: drop-shadow(0 1.5px 1px rgb(10 53 33 / 0.25)); pointer-events: none; }
+
+/* Devanagari and Gujarati build each syllable from joined letters; any
+   tracking (eyebrows, uppercase labels) pulls the matras off their
+   consonants. Text marked lang="en" inside keeps its spacing. */
+:lang(hi), :lang(gu) { letter-spacing: 0 !important; }
+

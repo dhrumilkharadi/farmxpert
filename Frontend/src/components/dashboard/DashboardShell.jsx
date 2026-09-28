@@ -136,9 +136,9 @@ export default function DashboardShell({ children }) {
           })}
         </nav>
 
-        <div className="relative mt-4 flex items-center gap-1 border-t border-[var(--sb-line)] pt-3 pr-9 pl-7">
+        <Suspense><LocaleSelect variant="sidebar" className="mt-4" /></Suspense>
+        <div className="relative mt-3 flex items-center justify-between gap-1 border-t border-[var(--sb-line)] pt-3 pr-9 pl-7">
           <ThemeToggle compact className="!size-8 !rounded-lg !border-0 !bg-transparent !text-[var(--sb-faint)] hover:!bg-[var(--sb-hover)] hover:!text-[var(--sb-text)]" />
-          <Suspense><LocaleSelect className="min-w-0 flex-1 [&_select]:h-8 [&_select]:w-full [&_select]:rounded-lg [&_select]:border-0 [&_select]:bg-transparent [&_select]:text-[0.8rem] [&_select]:text-[var(--sb-muted)] hover:[&_select]:bg-[var(--sb-hover)] [&_svg]:text-[var(--sb-faint)] [&_option]:text-black" /></Suspense>
           <button type="button" onClick={signOut} disabled={leaving} aria-label={s('logout')} title={s('logout')}
             className="grid size-8 place-items-center rounded-lg text-[var(--sb-faint)] transition-colors hover:bg-[var(--sb-hover)] hover:text-danger">
             <LogOut className="size-4" strokeWidth={1.6} />
@@ -151,6 +151,7 @@ export default function DashboardShell({ children }) {
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-line bg-canvas px-4 lg:hidden">
           <Logo href="/dashboard" />
           <div className="flex items-center gap-2">
+            <Suspense><LocaleSelect /></Suspense>
             <ThemeToggle compact />
             <Link href="/dashboard/settings" aria-label={t('settings')}
               className="grid size-9 place-items-center rounded-full bg-forest text-xs font-medium text-on-forest">{initials}</Link>

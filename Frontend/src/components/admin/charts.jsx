@@ -14,14 +14,24 @@
 // ============================================================
 
 import { useMemo, useRef, useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 
 import { cn } from '@/lib/cn';
 
 export const SERIES = ['var(--viz-1)', 'var(--viz-2)', 'var(--viz-3)', 'var(--viz-4)'];
 
-const compact = new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 1 });
-export const fmtNum = (v) => (v === null || v === undefined ? '—' : compact.format(v));
-export const fmtDay = (d) => new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+/** Intl tag for an app locale: Indian formats (lakh grouping) in every language. */
+export const intlTag = (locale) => (locale === 'en' ? 'en-IN' : `${locale}-IN`);
+
+export const fmtNum = (v, tag = 'en-IN') => (v === null || v === undefined ? '—'
+  : new Intl.NumberFormat(tag, { notation: 'compact', maximumFractionDigits: 1 }).format(v));
+export const fmtDay = (d, tag = 'en-IN') => new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString(tag, { day: 'numeric', month: 'short' });
+
+/** Number and day formatters in the viewer's language. */
+export function useChartFormat() {
+  const tag = intlTag(useLocale());
+  return useMemo(() => ({ tag, num: (v) => fmtNum(v, tag), day: (d) => fmtDay(d, tag) }), [tag]);
+}
 
 /** Round a max up to a friendly axis top and return 4 ticks. */
 function niceTicks(max) {
@@ -86,7 +96,10 @@ function Tooltip({ x, y, width, children }) {
  * Line or stacked-area chart over days.
  * series: [{ key, label, color, values: number[] (aligned to days), dashed? }]
  */
-export function TimeChart({ days, series, stacked = false, height = 240, format = fmtNum, unit = '' }) {
+export function TimeChart({ days, series, stacked = false, height = 240, format, unit = '' }) {
+  const t = useTranslations('dashboard.admin.chart');
+  const fx = useChartFormat();
+  format ??= fx.num;
   const box = useRef(null);
   const [hover, setHover] = useState(null);
   const W = 720;
@@ -136,7 +149,7 @@ export function TimeChart({ days, series, stacked = false, height = 240, format 
           </g>
         ))}
         {days.map((d, i) => (i % every === 0 || i === days.length - 1) && (
-          <text key={d} x={x(i)} y={H - 8} textAnchor="middle" className="fill-[var(--viz-axis)] text-[10px]">{fmtDay(d)}</text>
+          <text key={d} x={x(i)} y={H - 8} textAnchor="middle" className="fill-[var(--viz-axis)] text-[10px]">{fx.day(d)}</text>
         ))}
         {layers.map((l) => {
           const upper = l.upper.map((v, i) => [x(i), y(v)]);
@@ -161,7 +174,7 @@ export function TimeChart({ days, series, stacked = false, height = 240, format 
       </svg>
       {hover && (
         <Tooltip x={hover.cx} y={hover.cy} width={hover.w}>
-          <p className="mb-1.5 font-medium text-ink">{fmtDay(days[hover.i])}</p>
+          <p className="mb-1.5 font-medium text-ink">{fx.day(days[hover.i])}</p>
           {[...layers].reverse().map((l) => (
             <p key={l.key} className="flex items-center justify-between gap-4 py-0.5 text-muted">
               <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: l.color }} />{l.label}</span>
@@ -170,7 +183,7 @@ export function TimeChart({ days, series, stacked = false, height = 240, format 
           ))}
           {stacked && layers.length > 1 && (
             <p className="mt-1 flex justify-between border-t border-line pt-1 text-muted">
-              <span>Total</span><span className="font-medium text-ink tabular-nums">{format(layers[layers.length - 1].upper[hover.i])}{unit}</span>
+              <span>{t('total')}</span><span className="font-medium text-ink tabular-nums">{format(layers[layers.length - 1].upper[hover.i])}{unit}</span>
             </p>
           )}
         </Tooltip>
@@ -180,7 +193,9 @@ export function TimeChart({ days, series, stacked = false, height = 240, format 
 }
 
 /** Stacked daily bars (e.g. text vs voice questions). */
-export function BarChart({ days, series, height = 220, format = fmtNum }) {
+export function BarChart({ days, series, height = 220, format }) {
+  const fx = useChartFormat();
+  format ??= fx.num;
   const box = useRef(null);
   const [hover, setHover] = useState(null);
   const W = 720;
@@ -231,7 +246,7 @@ export function BarChart({ days, series, height = 220, format = fmtNum }) {
                 );
               })}
               {(i % every === 0 || i === days.length - 1) && (
-                <text x={cx} y={H - 8} textAnchor="middle" className="fill-[var(--viz-axis)] text-[10px]">{fmtDay(d)}</text>
+                <text x={cx} y={H - 8} textAnchor="middle" className="fill-[var(--viz-axis)] text-[10px]">{fx.day(d)}</text>
               )}
             </g>
           );
@@ -239,7 +254,7 @@ export function BarChart({ days, series, height = 220, format = fmtNum }) {
       </svg>
       {hover && (
         <Tooltip x={hover.cx} y={hover.cy} width={hover.w}>
-          <p className="mb-1.5 font-medium text-ink">{fmtDay(days[hover.i])}</p>
+          <p className="mb-1.5 font-medium text-ink">{fx.day(days[hover.i])}</p>
           {series.map((s) => (
             <p key={s.key} className="flex items-center justify-between gap-4 py-0.5 text-muted">
               <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: s.color }} />{s.label}</span>
@@ -253,7 +268,9 @@ export function BarChart({ days, series, height = 220, format = fmtNum }) {
 }
 
 /** Ranked horizontal bars with the value at the end (magnitude by category). */
-export function RankBars({ rows, color = 'var(--viz-1)', format = fmtNum, labelOf = (r) => r.label }) {
+export function RankBars({ rows, color = 'var(--viz-1)', format, labelOf = (r) => r.label }) {
+  const fx = useChartFormat();
+  format ??= fx.num;
   const max = Math.max(1, ...rows.map((r) => r.value));
   const total = rows.reduce((s, r) => s + r.value, 0) || 1;
   const [hover, setHover] = useState(null);
@@ -283,7 +300,11 @@ export function Heatmap({ cells }) {
   cells.forEach((c) => { grid[c.dow - 1][c.hour] = c.n; });
   const max = Math.max(1, ...grid.flat());
   const [hover, setHover] = useState(null);
-  const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const t = useTranslations('dashboard.admin.chart');
+  const { tag } = useChartFormat();
+  // Monday-first weekday names in the viewer's language (2024-01-01 was a Monday)
+  const names = useMemo(() => [0, 1, 2, 3, 4, 5, 6].map((i) => new Intl.DateTimeFormat(tag, { weekday: 'short' })
+    .format(new Date(2024, 0, 1 + i))), [tag]);
   const step = (v) => (v ? 0.14 + (v / max) * 0.86 : 0);
   return (
     <div className="relative">
@@ -304,7 +325,7 @@ export function Heatmap({ cells }) {
         ))}
       </div>
       <div className="mt-3 flex items-center justify-between text-xs text-muted">
-        <span>{hover ? `${names[hover.d]} ${String(hover.h).padStart(2, '0')}:00 – ${hover.v} question${hover.v === 1 ? '' : 's'}` : 'Hover a cell'}</span>
+        <span>{hover ? `${names[hover.d]} ${String(hover.h).padStart(2, '0')}:00 – ${t('questions', { count: hover.v })}` : t('hoverCell')}</span>
         <span className="inline-flex items-center gap-1.5">Less
           {[0.14, 0.4, 0.7, 1].map((s) => (
             <span key={s} className="size-2.5 rounded-[2px]" style={{ background: `color-mix(in oklab, var(--viz-seq) ${s * 100}%, var(--viz-track))` }} />

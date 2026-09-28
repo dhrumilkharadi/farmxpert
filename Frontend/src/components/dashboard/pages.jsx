@@ -25,6 +25,9 @@ import {
 } from '@/components/ui/primitives';
 import { Empty, PageHeader, Pill, Section, Sparkline, Stat, useFormat } from './widgets';
 
+// Probes registered before labels went unset were all saved as the English default.
+const probeName = (label, t) => (label && label !== 'Soil probe' ? label : t('probe'));
+
 const PRIORITY_TONE = { critical: 'danger', high: 'warn', medium: 'gold', low: 'muted', deferred: 'muted' };
 
 function useErr() {
@@ -272,7 +275,7 @@ export function SoilPage() {
             <div className="flex items-start gap-4">
               <span className="grid size-11 place-items-center rounded-full bg-sage"><Wifi className="size-5 text-leaf" /></span>
               <div>
-                <p className="font-medium text-ink">{device.label || t('probe')}</p>
+                <p className="font-medium text-ink">{probeName(device.label, t)}</p>
                 <p className="text-xs text-faint">{t('tokenEnds', { hint: device.token_hint })}</p>
                 <p className="mt-1 text-sm text-muted">{device.last_seen_at ? t('lastSeen', { when: f.ago(device.last_seen_at) }) : t('neverSynced')}</p>
               </div>
@@ -504,7 +507,7 @@ function SavedDevice({ device }) {
             <span className="absolute inline-flex size-full animate-ping rounded-full bg-leaf/60" />
             <span className="relative inline-flex size-2 rounded-full bg-leaf" />
           </span>
-          <p className="text-sm font-medium text-ink">{device.label || t('probe')}</p>
+          <p className="text-sm font-medium text-ink">{probeName(device.label, t)}</p>
         </div>
         <p className="text-xs text-faint">
           {device.last_seen_at ? t('lastSeen', { when: f.relativeTime(new Date(device.last_seen_at), new Date()) }) : t('neverSeen')}
@@ -595,7 +598,7 @@ function SettingsView() {
         {farm && (
           <Section title={t('device')} className="scroll-mt-24" >
             <form id="device" className="space-y-4" onSubmit={(e) => { e.preventDefault(); act('device', async () => {
-              await api.post(`/farms/${farm.id}/devices`, { token: token.trim(), label: 'Soil probe' });
+              await api.post(`/farms/${farm.id}/devices`, { token: token.trim() });
               setToken('');
               devices.reload();
             }, t('deviceSaved')); }}>

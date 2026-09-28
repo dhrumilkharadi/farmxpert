@@ -593,6 +593,7 @@
       "token": "Blynk auth token",
       "tokenHint": "Letters and numbers, usually 32 characters.",
       "deviceName": "Device name",
+      "deviceNamePlaceholder": "Soil probe",
       "testDevice": "Test connection",
       "deviceOk": "Connected. Reading now:",
       "tokenRejected": "Blynk did not accept this token. Please check it.",
@@ -1061,6 +1062,146 @@
         "listening": "Listening…",
         "thinking": "Thinking…",
         "speaking": "Speaking…"
+      }
+    },
+    "admin": {
+      "eyebrow": "Admin",
+      "title": "Operations analytics",
+      "lead": "Usage, cost, quality and reliability across every farmer, in {tz} days.",
+      "range": "Range",
+      "days": "{count} days",
+      "noAccess": "Admin access is required to see this page.",
+      "noPrior": "no prior data",
+      "showToken": "Show token",
+      "hideToken": "Hide token",
+      "topError": "Most common error: {error}",
+      "kpi": {
+        "activeFarmers": "Active farmers",
+        "accounts": "{count, plural, one {# account} other {# accounts}}",
+        "questions": "Questions answered",
+        "byVoice": "{pct}% by voice",
+        "answerRate": "Answer rate",
+        "answerRateSub": "success + partial",
+        "medianWait": "Median wait",
+        "tokens": "Tokens",
+        "perQuestion": "{n} / question",
+        "spend": "AI spend",
+        "probesLive": "{live}/{total} probes live"
+      },
+      "panels": {
+        "tokenBurn": "Token burn",
+        "tokenBurnQ": "Where the AI budget goes each day, by what the tokens were used for.",
+        "noTokens": "No token usage in this period.",
+        "spendByModel": "Spend by model",
+        "spendByModelQ": "Which model the money goes to.",
+        "priced": "Priced at write time from TOKEN_PRICES.",
+        "engagement": "Engagement",
+        "engagementQ": "Farmers who asked each day, and how many questions they asked.",
+        "textVoice": "Text vs voice",
+        "textVoiceQ": "How farmers prefer to ask.",
+        "latency": "Answer latency",
+        "latencyQ": "What a farmer actually waits: the median answer, and the slowest 5%.",
+        "agents": "Agent reliability",
+        "agentsQ": "Which expert fails, or slows answers down.",
+        "when": "When farmers ask",
+        "whenQ": "Questions by weekday and hour, farmer's local time.",
+        "topics": "What they ask about",
+        "topicsQ": "Topic of each answered question.",
+        "languages": "Languages",
+        "languagesQ": "The language each question was asked in.",
+        "growth": "Growth",
+        "growthQ": "New accounts each day, and how many completed farm onboarding."
+      },
+      "series": {
+        "questions": "Questions",
+        "activeFarmers": "Active farmers",
+        "typed": "Typed",
+        "spoken": "Spoken",
+        "p50": "Median (p50)",
+        "p95": "Slowest 5% (p95)",
+        "median": "Median",
+        "p95short": "p95",
+        "onboarded": "Onboarded",
+        "notOnboarded": "Signed up, not onboarded"
+      },
+      "agentTable": {
+        "agent": "Agent",
+        "runs": "Runs",
+        "success": "Success"
+      },
+      "health": {
+        "healthy": "Healthy",
+        "degraded": "Degraded",
+        "failing": "Failing"
+      },
+      "purposes": {
+        "chat": "Chat (understand + answer)",
+        "embedding": "Knowledge search",
+        "transcription": "Speech to text",
+        "speech": "Text to speech"
+      },
+      "agents": {
+        "weather_watcher": "Weather Watcher",
+        "soil_health": "Soil Health",
+        "irrigation_planner": "Irrigation Planner",
+        "crop_predictor": "Crop Advisor",
+        "task_scheduler": "Task Planner",
+        "market_intelligence": "Market Intelligence",
+        "retrieval_agent": "Farm Knowledge"
+      },
+      "intents": {
+        "daily_plan": "Daily plan",
+        "irrigation": "Irrigation",
+        "crop_choice": "Crop choice",
+        "soil": "Soil",
+        "weather": "Weather",
+        "market": "Market prices",
+        "ask": "General question",
+        "full_scan": "Full farm scan"
+      },
+      "languages": {
+        "en": "English",
+        "hi": "Hindi",
+        "gu": "Gujarati",
+        "mr": "Marathi",
+        "ta": "Tamil",
+        "te": "Telugu",
+        "bn": "Bengali",
+        "kn": "Kannada",
+        "pa": "Punjabi",
+        "unknown": "Unknown"
+      },
+      "roles": {
+        "farmer": "Farmer",
+        "agronomist": "Agronomist",
+        "admin": "Admin",
+        "super_admin": "Super admin"
+      },
+      "accounts": {
+        "title": "Accounts",
+        "question": "Every account: today's tokens against the limit, the last 30 days, and connected probes.",
+        "search": "Search name, email, phone",
+        "user": "User",
+        "role": "Role",
+        "farms": "Farms",
+        "today": "Today vs limit",
+        "tokens30": "Tokens · 30d",
+        "spend30": "Spend · 30d",
+        "blynk": "Blynk token",
+        "lastLogin": "Last login"
+      },
+      "detail": {
+        "tokensPerDay": "Tokens per day, last 30 days",
+        "noUsage": "No usage in the last 30 days.",
+        "byModel": "By model (all time)",
+        "farmsDevices": "Farms and devices",
+        "probe": "probe",
+        "recent": "Recent questions"
+      },
+      "chart": {
+        "total": "Total",
+        "hoverCell": "Hover a cell",
+        "questions": "{count, plural, one {# question} other {# questions}}"
       }
     }
   },
